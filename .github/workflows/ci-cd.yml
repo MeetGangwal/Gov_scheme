@@ -1,0 +1,187 @@
+name: GovScheme Portal — CI/CD
+
+# TRIGGER: runs on every push to main or develop
+# and on every Pull Request targeting main
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# Environment variables available to ALL jobs
+env:
+  REGISTRY: ghcr.io
+  # github.repository_owner = your GitHub username
+  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/govscheme-backend
+  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/govscheme-frontend
+
+jobs:
+  # ────────────────────────────────────────────
+  # JOB 1 — Test Backend
+  # ────────────────────────────────────────────
+  test-backend:
+    name: Test Backend
+    runs-on: ubuntu-latest   # GitHub gives us a free Ubuntu VM
+
+    steps:
+      # Step 1: Download your code onto the VM
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Install Node.js 20 on the VM
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+
+      # Step 3: Install dependencies
+      # 'npm ci' = clean install, faster than npm install, uses lock file exactly
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      # Step 4: Run tests
+      # --passWithNoTests = don't fail if no tests exist yet
+      # --coverage = generate coverage report (needed for SonarCloud later)
+      - name: Run tests
+        working-directory: backend
+        run: npm test -- --passWithNoTests
+        env:
+          NODE_ENV: test
+          # We use a test MongoDB URI — never use production DB for tests
+          MONGODB_URI: ${{ secrets.MONGODB_URI_TEST }}
+          JWT_SECRET: test-secret-for-ci
+
+  # ────────────────────────────────────────────
+  # JOB 2 — Test Frontend
+  # ────────────────────────────────────────────
+  test-frontend:
+    name: Test Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend-react/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend-react
+        run: npm ci
+
+      # Vite build acts as our "test" — if it compiles, it's valid
+      - name: Build frontend
+        working-directory: frontend-react
+        run: npm run build
+
+  # ────────────────────────────────────────────
+  # JOB 3 — SonarCloud SAST (Security Gate 1)
+  # 'needs' means this job waits for both test jobs to pass first
+  # ────────────────────────────────────────────
+  sonarcloud:
+    name: SonarCloud Scan
+    runs-on: ubuntu-latest
+    needs: [test-backend, test-frontend]  # only runs if both tests pass
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # SonarCloud needs full git history for blame info
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # auto-provided by GitHub
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}     # you'll create this
+
+  # ────────────────────────────────────────────
+  # JOB 4 — Build Docker Images + Trivy Scan (Security Gate 2)
+  # ────────────────────────────────────────────
+  build-and-scan:
+    name: Build & Scan Images
+    runs-on: ubuntu-latest
+    needs: [sonarcloud]  # only runs if SonarCloud passes
+
+    permissions:
+      contents: read
+      packages: write        # needed to push to GHCR
+      security-events: write # needed to upload scan results to GitHub
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Log in to GitHub Container Registry (GHCR)
+      # This is where your Docker images will be stored — free and linked to GitHub
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build backend image
+      # We build locally first (push: false) so Trivy can scan BEFORE pushing
+      - name: Build backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: false   # don't push yet — scan first
+          tags: ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          load: true    # load into local Docker so Trivy can access it
+
+      # Scan backend image for vulnerabilities
+      # exit-code: 1 = BLOCK the pipeline if CRITICAL or HIGH CVEs found
+      - name: Trivy scan — backend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      # Build frontend image
+      - name: Build frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-react
+          push: false
+          tags: ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          load: true
+
+      # Scan frontend image
+      - name: Trivy scan — frontend
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      # Only push images AFTER both scans pass
+      # We tag with both the commit SHA (specific) and 'latest' (convenient)
+      - name: Push backend image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_BACKEND }}:${{ github.sha }}
+            ${{ env.IMAGE_BACKEND }}:latest
+
+      - name: Push frontend image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend-react
+          push: true
+          tags: |
+            ${{ env.IMAGE_FRONTEND }}:${{ github.sha }}
+            ${{ env.IMAGE_FRONTEND }}:latest
