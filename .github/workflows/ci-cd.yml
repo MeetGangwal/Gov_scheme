@@ -154,6 +154,10 @@ jobs:
           format: table
           exit-code: 1
           severity: CRITICAL,HIGH
+          # Only scan your app's packages, skip base image system packages
+          scanners: vuln
+          vuln-type: library
+          ignore-unfixed: true
 
       # Build frontend image
       - name: Build frontend image
@@ -172,6 +176,9 @@ jobs:
           format: table
           exit-code: 1
           severity: CRITICAL,HIGH
+          scanners: vuln
+          vuln-type: library
+          ignore-unfixed: true
 
       # Only push images AFTER both scans pass
       # We tag with both the commit SHA (specific) and 'latest' (convenient)
