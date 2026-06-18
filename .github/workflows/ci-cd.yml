@@ -11,9 +11,8 @@ on:
 # Environment variables available to ALL jobs
 env:
   REGISTRY: ghcr.io
-  # github.repository_owner = your GitHub username
-  IMAGE_BACKEND: ghcr.io/${{ github.repository_owner }}/govscheme-backend
-  IMAGE_FRONTEND: ghcr.io/${{ github.repository_owner }}/govscheme-frontend
+  IMAGE_BACKEND: ghcr.io/meetgangwal/govscheme-backend
+  IMAGE_FRONTEND: ghcr.io/meetgangwal/govscheme-frontend
 
 jobs:
   # ────────────────────────────────────────────
