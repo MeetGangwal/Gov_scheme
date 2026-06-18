@@ -1,7 +1,8 @@
 const request = require('supertest');
 const mongoose = require('mongoose');
 const app = require('../../index');
-const User = require('../models/User');
+// auth.test.js — fix line 4
+const User = require('../models/User');  // ← this is actually correct (src/models)
 
 beforeAll(async () => {
   await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/schemeDB_test');

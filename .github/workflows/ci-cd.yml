@@ -42,6 +42,15 @@ jobs:
         working-directory: backend
         run: npm ci
 
+      - name: Verify secrets
+        run: |
+          if [ -z "$MONGO_URI" ]; then
+            echo "ERROR: MONGODB_URI_TEST secret is not set!"
+            exit 1
+          fi
+          echo "MongoDB URI is set ✅"
+        env:
+          MONGO_URI: ${{ secrets.MONGODB_URI_TEST }}
       # Step 4: Run tests
       # --passWithNoTests = don't fail if no tests exist yet
       # --coverage = generate coverage report (needed for SonarCloud later)
