@@ -1,7 +1,7 @@
 # ─── STAGE 1: Builder ───────────────────────────────────────────
 # We use a full Node image just to install dependencies
 # "alpine" = a tiny 5MB Linux distro, much smaller than Ubuntu
-FROM node:20-alpine3.21 AS builder
+FROM node:20-alpine AS builder
 
 # Set working directory inside the container
 # All future commands run from here
@@ -19,7 +19,7 @@ RUN npm ci --only=production
 # ─── STAGE 2: Runner ────────────────────────────────────────────
 # Fresh minimal image — we copy only what we need from builder
 # This means no build tools, no npm cache, no junk in final image
-FROM node:20-alpine3.21 AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 

@@ -155,9 +155,8 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           scanners: vuln
-          # pkg-types replaces deprecated vuln-type (Trivy v0.54+)
-          # 'library' = only scan app-level packages, skip OS packages
-          pkg-types: library
+          # 'library' = only scan app-level packages, skip OS-level packages
+          vuln-type: library
           ignore-unfixed: true
           # Skip the base image's pre-installed npm — those CVEs are not in our app
           skip-dirs: /usr/local/lib/node_modules,/opt/yarn-v1.22.22
@@ -180,8 +179,8 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           scanners: vuln
-          # pkg-types replaces deprecated vuln-type (Trivy v0.54+)
-          pkg-types: library
+          # 'library' = only scan app-level packages, skip OS-level packages
+          vuln-type: library
           ignore-unfixed: true
           # Skip the base image's pre-installed npm — those CVEs are not in our app
           skip-dirs: /usr/local/lib/node_modules,/opt/yarn-v1.22.22
