@@ -154,10 +154,13 @@ jobs:
           format: table
           exit-code: 1
           severity: CRITICAL,HIGH
-          # Only scan your app's packages, skip base image system packages
           scanners: vuln
-          vuln-type: library
+          # pkg-types replaces deprecated vuln-type (Trivy v0.54+)
+          # 'library' = only scan app-level packages, skip OS packages
+          pkg-types: library
           ignore-unfixed: true
+          # Skip the base image's pre-installed npm — those CVEs are not in our app
+          skip-dirs: /usr/local/lib/node_modules,/opt/yarn-v1.22.22
 
       # Build frontend image
       - name: Build frontend image
@@ -177,8 +180,11 @@ jobs:
           exit-code: 1
           severity: CRITICAL,HIGH
           scanners: vuln
-          vuln-type: library
+          # pkg-types replaces deprecated vuln-type (Trivy v0.54+)
+          pkg-types: library
           ignore-unfixed: true
+          # Skip the base image's pre-installed npm — those CVEs are not in our app
+          skip-dirs: /usr/local/lib/node_modules,/opt/yarn-v1.22.22
 
       # Only push images AFTER both scans pass
       # We tag with both the commit SHA (specific) and 'latest' (convenient)
