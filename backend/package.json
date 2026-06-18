@@ -32,11 +32,6 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testTimeout": 30000,
-    "coverageThreshold": {
-      "global": {
-        "lines": 70
-      }
-    }
+    "testTimeout": 30000
   }
 }

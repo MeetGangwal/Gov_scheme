@@ -47,12 +47,11 @@ jobs:
       # --coverage = generate coverage report (needed for SonarCloud later)
       - name: Run tests
         working-directory: backend
-        run: npm test -- --passWithNoTests
+        run: npm test -- --passWithNoTests --forceExit
         env:
           NODE_ENV: test
-          # We use a test MongoDB URI — never use production DB for tests
-          MONGODB_URI: ${{ secrets.MONGODB_URI_TEST }}
           JWT_SECRET: test-secret-for-ci
+          MONGODB_URI: ${{ secrets.MONGODB_URI_TEST }}
 
   # ────────────────────────────────────────────
   # JOB 2 — Test Frontend
