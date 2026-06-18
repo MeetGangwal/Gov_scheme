@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  # ── Backend ──────────────────────────────────
+  backend:
+    build:
+      context: ../backend        # build Dockerfile from backend folder
+      dockerfile: Dockerfile
+    container_name: govscheme-backend
+    ports:
+      - "5000:5000"              # host:container
+    environment:
+      - NODE_ENV=development
+    env_file:
+      - ../backend/.env          # loads your .env file into the container
+    networks:
+      - govscheme-net
+    restart: unless-stopped
+
+  # ── Frontend ─────────────────────────────────
+  frontend:
+    build:
+      context: ../frontend-react
+      dockerfile: Dockerfile
+    container_name: govscheme-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend                  # starts backend first
+    networks:
+      - govscheme-net
+    restart: unless-stopped
+
+# Shared network so containers can talk to each other by name
+# e.g. frontend can reach backend at http://backend:5000
+networks:
+  govscheme-net:
+    driver: bridge
